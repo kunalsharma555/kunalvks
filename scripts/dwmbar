@@ -1,0 +1,73 @@
+#!/bin/sh
+# REQUIRES FONT-AWESOME PACKAGE TO WORK PROPERLY
+
+dte(){
+        dte="$(date +"%a, %b %d %R")"
+        echo "$dte"
+}
+
+hdd(){
+        hdd="$(df -h /home | grep dev | awk '{print$3, " "  $5}')"
+        echo "  $hdd"
+}
+
+mem(){
+        mem="$(free -h | awk '/Mem:/ {printf $3 " / " $2}')"
+        echo "  $mem"
+}
+
+cpu() {
+    read cpu a b c previdle rest < /proc/stat
+      prevtotal=$((a+b+c+previdle))
+        sleep 0.5
+          read cpu a b c idle rest < /proc/stat
+            total=$((a+b+c+idle))
+              cpu=$((100*( (total-prevtotal) - (idle-previdle) ) / (total-prevtotal) ))
+                echo "  $cpu% "
+}
+
+
+vol(){
+	vol="$(amixer -D pulse get Master | awk -F'[][]' 'END{print $4":"$2}')"
+	echo "  $vol"
+}
+
+
+temp() {
+	tmp="$(grep temp_F ~/.config/weather.txt | awk '{print $2}' | sed 's/"//g' | sed 's/,/ F/')"
+	echo " $tmp"
+}
+
+bat() {
+	battery="$(acpi -b | awk '{ split($5,a,":"); print substr($3,0,2), $4, "["a[1]":"a[2]"]" }' | tr -d ',')"
+	echo " $battery"
+}
+
+batstat() {
+	bstat="$(cat /sys/class/power_supply/BAT1/status)"
+	echo "$bstat"
+}
+
+netstat() {
+	logfile="${XDG_CACHE_HOME:-$HOME/.cache}/netlog"
+	prevdata="$(cat $logfile)"
+
+	rxcurrent="$(( $(cat /sys/class/net/*/statistics/rx_bytes | paste -sd '+') ))"
+	txcurrent="$(( $(cat /sys/class/net/*/statistics/tx_bytes | paste -sd '+') ))"
+
+	printf "%sKiB  %sKiB\\n" \
+        "  $(((rxcurrent-${prevdata%% *})/1024))" \
+        "  $(((txcurrent-${prevdata##* })/1024))"
+
+	echo "$rxcurrent $txcurrent" > "$logfile"
+}
+
+status(){
+        echo "$(cpu) | $(mem) | $(hdd) | $(bat) | $(vol) | $(dte)"
+}
+
+
+while true; do
+	xsetroot -name "$(status)"
+	sleep 5s 
+done
